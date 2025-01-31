@@ -1,0 +1,107 @@
+with calendarDates as (
+  select
+    explode(array_dates) as date
+  from
+    (
+      select
+        sequence(
+          make_date(2010, 01, 01),
+          make_date(2050, 01, 01),
+          interval 1 day 
+        ) as array_dates
+    )
+) 
+select
+  10000 * year(date) + 100 * month(date) + day(date) as date_key,
+  to_date(date) as date,
+  weekday(date) + 1 as week_day,
+  day(date) day_of_month,
+  ROW_NUMBER() OVER (
+    ORDER BY
+      date
+  ) AS day_number_overall,
+  date_format(date, 'EEEE') AS day_name,
+  left(day_name, 3) AS day_name_short,
+  CASE
+    WHEN dayofweek(date) IN (1, 7) THEN 'Weekend'
+    ELSE 'Weekday'
+  END AS weekday_flag,
+  weekofyear(date) AS week_of_year,
+  dense_rank() OVER (ORDER BY date_trunc('week', date)) AS week_number_overall,
+  CASE
+    WHEN date_add(date, (weekday(date) + 1) -1) = date THEN to_date(date)
+    ELSE date_add(date, -(weekday(date)))
+  END AS week_start,
+  date_add(
+    CASE
+      WHEN date_add(date, (weekday(date) + 1) -1) = date THEN to_date(date)
+      ELSE date_add(date, -(weekday(date)))
+    END,
+    6
+  ) AS week_end,
+  month(date) AS month,
+  dense_rank() OVER (
+    ORDER BY
+      YEAR(date),
+      month(date)
+  ) AS month_number_overall,
+  date_format(date, 'MMMM') AS month_name,
+  left(month_name, 3) AS month_name_short,
+  date_format(date, 'MMMM yyyy') AS month_year,
+  date_format(date, 'yyyy-MM') as date_year_month,
+  date_add(last_day(add_months(date, -1)), 1) AS first_day_of_month,
+  last_day(date) AS last_day_of_month,
+  CASE
+    WHEN month(date) IN (1, 2, 3) THEN 1
+    WHEN month(date) IN (4, 5, 6) THEN 2
+    WHEN month(date) IN (7, 8, 9) THEN 3
+    ELSE 4
+  END AS quarter_number,
+  CONCAT('Q', quarter_number) AS quarter_name,
+  DENSE_RANK() OVER (
+    ORDER BY
+      YEAR(date),
+      CASE
+        WHEN month(date) IN (1, 2, 3) THEN 1
+        WHEN month(date) IN (4, 5, 6) THEN 2
+        WHEN month(date) IN (7, 8, 9) THEN 3
+        ELSE 4
+      END
+  ) AS quarter_number_overall,
+  int(
+    concat(year(date), '0', quarter_number)
+  ) AS year_quarter_number,
+  concat(year(date), '_Q', quarter_number) AS year_quarter,
+  year(date_add(date, 89)) AS fiscal_year,
+  case
+    when to_date(now()) = date then true
+    else false
+  end as current_day,
+  CASE
+    WHEN to_date(now()) BETWEEN (
+      case
+        when date_add(date, (weekday(date) + 1) -1) = date then to_date(date)
+        else date_add(date, -(weekday(date)))
+      end
+    )
+    AND (
+      date_add(
+        case
+          when date_add(date, (weekday(date) + 1) -1) = date then to_date(date)
+          else date_add(date, -(weekday(date)))
+        end,
+        6
+      )
+    ) THEN true
+    else false
+  end as current_week,
+  case
+    when month(to_date(now())) = month(date)
+    and year(to_date(now())) = year(date) then true
+    else false
+  end as current_month,
+  case
+    when year(to_date(now())) = year(date) then true
+    else false
+  end as current_year from
+  calendarDates
